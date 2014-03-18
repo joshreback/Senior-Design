@@ -7,6 +7,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
 
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
+
 /**
  * @author joshuareback
  * 
@@ -24,6 +27,18 @@ import java.io.InputStreamReader;
 
 public class ExtrudeConductor {
 	public static void main(String[] args) {
+		
+		// set up File Chooser 
+		JFileChooser chooser = new JFileChooser();
+	    FileNameExtensionFilter filter = new FileNameExtensionFilter(
+	        "GCode Files", "gcode");
+	    chooser.setFileFilter(filter);
+	    int returnVal = chooser.showOpenDialog(chooser);
+	    if(returnVal == JFileChooser.APPROVE_OPTION) {
+	       System.out.println("You chose to open this file: " +
+	            chooser.getSelectedFile().getName());
+	    }
+	    /*
 		boolean replaceMode = false; 
 		boolean subsequentMove = false; 
 		String filename = args[0];
@@ -88,6 +103,7 @@ public class ExtrudeConductor {
 		} catch (Exception e) {
 			System.out.println("Problem reading file.");
 		}
+		*/
 
 	}
 }
