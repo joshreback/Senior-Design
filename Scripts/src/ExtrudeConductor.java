@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -29,26 +30,27 @@ public class ExtrudeConductor {
 	public static void main(String[] args) {
 		
 		// set up File Chooser 
+		File inputFile = null; 
 		JFileChooser chooser = new JFileChooser();
 	    FileNameExtensionFilter filter = new FileNameExtensionFilter(
 	        "GCode Files", "gcode");
 	    chooser.setFileFilter(filter);
 	    int returnVal = chooser.showOpenDialog(chooser);
-	    if(returnVal == JFileChooser.APPROVE_OPTION) {
-	       System.out.println("You chose to open this file: " +
-	            chooser.getSelectedFile().getName());
+	    
+	    // Access input file
+	    if (returnVal == JFileChooser.APPROVE_OPTION) {
+	       inputFile = chooser.getSelectedFile(); 
 	    }
-	    /*
+	    
+	    // declare variables to use in file parsing
 		boolean replaceMode = false; 
 		boolean subsequentMove = false; 
-		String filename = args[0];
 		String tempLine; 
 		String line; 
 		try {
-			// Declare variable to hold input file, each line, and output
-			FileInputStream fsIn = new FileInputStream(filename);
-            BufferedReader bRead = new BufferedReader(new InputStreamReader(fsIn));
-            StringBuilder file = new StringBuilder();
+			// Set up to read file and hold content of modified file
+            BufferedReader bRead = new BufferedReader(new FileReader(inputFile));
+            StringBuilder modifiedFile = new StringBuilder();
 
 			// read file into input
 			while ((line = bRead.readLine()) != null) {
@@ -87,23 +89,23 @@ public class ExtrudeConductor {
 					line += "\n"; 
 				}
 				
-				file.append(line); 
+				modifiedFile.append(line); 
 			} 
 			
 			//Close the input stream
             bRead.close();
             
-			// Load updated file content into new file
-            FileWriter fsWrite = new FileWriter(filename.substring(0, 
+			// Load updated file content into new file in same directory as 
+            // input file 
+            String filename = inputFile.getCanonicalPath(); 
+            FileWriter fWrite = new FileWriter(filename.substring(0, 
             		filename.length() - 6)+"_updated.gcode");
-            BufferedWriter bWrite = new BufferedWriter(fsWrite);
-            bWrite.write(file.toString());
+            BufferedWriter bWrite = new BufferedWriter(fWrite);
+            bWrite.write(modifiedFile.toString());
             bWrite.close();
             
 		} catch (Exception e) {
 			System.out.println("Problem reading file.");
 		}
-		*/
-
 	}
 }
