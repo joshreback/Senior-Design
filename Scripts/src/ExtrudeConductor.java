@@ -9,6 +9,7 @@ import java.io.FileWriter;
 import java.io.InputStreamReader;
 
 import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
@@ -28,6 +29,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class ExtrudeConductor {
 	public static void main(String[] args) {
+		JOptionPane.showMessageDialog(null, "Please select the Dual Extrusion File");
 		
 		// set up File Chooser 
 		File inputFile = null; 
@@ -98,11 +100,19 @@ public class ExtrudeConductor {
 			// Load updated file content into new file in same directory as 
             // input file 
             String filename = inputFile.getCanonicalPath(); 
-            FileWriter fWrite = new FileWriter(filename.substring(0, 
-            		filename.length() - 6)+"_updated.gcode");
+            String newPathAndFileName = filename.substring(0, 
+            		filename.length() - 6)+"_updated.gcode";
+            FileWriter fWrite = new FileWriter(newPathAndFileName);
             BufferedWriter bWrite = new BufferedWriter(fWrite);
             bWrite.write(modifiedFile.toString());
             bWrite.close();
+            
+            // Notify user the task is done
+            String newFileName = 
+    		JOptionPane.showMessageDialog(null, "The new conductor extrusion file, " +
+    				"called\n" + newFilename + " has been created" );
+    		chooser.showOpenDialog(chooser); 
+
             
 		} catch (Exception e) {
 			System.out.println("Problem reading file.");
