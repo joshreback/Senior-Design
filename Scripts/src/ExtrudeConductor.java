@@ -14,14 +14,13 @@ import javax.swing.filechooser.FileNameExtensionFilter;
  * @author joshuareback
  * 
  * This script automates the process of extruding conductive material by
- * parsing a .gcode file corresponding to a Dualstrusion print. 
+ * parsing a .gcode file corresponding to a dual extrusion print. 
  * 
  * The print should be designed such that one extruder prints the plastic 
- * geometry while the other extruder prints the conductive  material. 
+ * geometry while the other extruder prints the conductive material. 
  * This script parses the gcode to replace toolchanges with the .gcode 
  * commands extrude conductive material. 
  * 
- * TODO Determine whether T0 or T1 corresponds to left extruder.
  * TODO Calculate offset from left/right extruder immediately after toolchange
  */
 
@@ -54,7 +53,6 @@ public class ExtrudeConductor {
 
 			// read file into input
 			while ((line = bRead.readLine()) != null) {
-
 				// Determine whether following lines need to be replaced
 				if (line.contains("M135 T1")) { 
 					replaceMode = true; 
@@ -66,7 +64,6 @@ public class ExtrudeConductor {
 					line = "M127; (Turns off conductor extrusion)\n" + line + "\n";
 					replaceMode = false;
 				}
-
 				// Determine if you have detected the first travel move
 				if (line.contains("Travel move") && replaceMode && 
 						!subsequentMove) { 
@@ -85,16 +82,15 @@ public class ExtrudeConductor {
 							tempLine + ("\nM126;\nG4 P80;\nM127;(control signal" +
 									" to extrude conductor)\nG4 P500;\n" +
 									"M126; (Turns on conductor extrusion)\n");
+				} else if (replaceMode && line.contains("B")) {
+					// turn off plastic extrusion during conductor extrusion
+					line = line.substring(0, line.indexOf("B"));
 				} else { 
 					line += "\n"; 
 				}
-
 				modifiedFile.append(line); 
 			} 
-
 			//Close the input stream
-			bRead.close();
-
 			// Load updated file content into new file in same directory as 
 			// input file 
 			String inputFileName = inputFile.getCanonicalPath(); 
@@ -120,4 +116,3 @@ public class ExtrudeConductor {
 		}
 	}
 }
-
