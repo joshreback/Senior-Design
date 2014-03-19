@@ -1,3 +1,4 @@
+import java.awt.Desktop;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -30,33 +31,33 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 public class ExtrudeConductor {
 	public static void main(String[] args) {
 		JOptionPane.showMessageDialog(null, "Please select the Dual Extrusion File");
-		
+
 		// set up File Chooser 
 		File inputFile = null; 
 		JFileChooser chooser = new JFileChooser();
-	    FileNameExtensionFilter filter = new FileNameExtensionFilter(
-	        "GCode Files", "gcode");
-	    chooser.setFileFilter(filter);
-	    int returnVal = chooser.showOpenDialog(chooser);
-	    
-	    // Access input file
-	    if (returnVal == JFileChooser.APPROVE_OPTION) {
-	       inputFile = chooser.getSelectedFile(); 
-	    }
-	    
-	    // declare variables to use in file parsing
+		FileNameExtensionFilter filter = new FileNameExtensionFilter(
+				"GCode Files", "gcode");
+		chooser.setFileFilter(filter);
+		int returnVal = chooser.showOpenDialog(chooser);
+
+		// Access input file
+		if (returnVal == JFileChooser.APPROVE_OPTION) {
+			inputFile = chooser.getSelectedFile(); 
+		}
+
+		// declare variables to use in file parsing
 		boolean replaceMode = false; 
 		boolean subsequentMove = false; 
 		String tempLine; 
 		String line; 
 		try {
 			// Set up to read file and hold content of modified file
-            BufferedReader bRead = new BufferedReader(new FileReader(inputFile));
-            StringBuilder modifiedFile = new StringBuilder();
+			BufferedReader bRead = new BufferedReader(new FileReader(inputFile));
+			StringBuilder modifiedFile = new StringBuilder();
 
 			// read file into input
 			while ((line = bRead.readLine()) != null) {
-				
+
 				// Determine whether following lines need to be replaced
 				if (line.contains("M135 T1")) { 
 					replaceMode = true; 
@@ -68,7 +69,7 @@ public class ExtrudeConductor {
 					line = "M127; (Turns off conductor extrusion)\n" + line + "\n";
 					replaceMode = false;
 				}
-				
+
 				// Determine if you have detected the first travel move
 				if (line.contains("Travel move") && replaceMode && 
 						!subsequentMove) { 
@@ -90,32 +91,36 @@ public class ExtrudeConductor {
 				} else { 
 					line += "\n"; 
 				}
-				
+
 				modifiedFile.append(line); 
 			} 
-			
-			//Close the input stream
-            bRead.close();
-            
-			// Load updated file content into new file in same directory as 
-            // input file 
-            String filename = inputFile.getCanonicalPath(); 
-            String newPathAndFileName = filename.substring(0, 
-            		filename.length() - 6)+"_updated.gcode";
-            FileWriter fWrite = new FileWriter(newPathAndFileName);
-            BufferedWriter bWrite = new BufferedWriter(fWrite);
-            bWrite.write(modifiedFile.toString());
-            bWrite.close();
-            
-            // Notify user the task is done
-            String newFileName = 
-    		JOptionPane.showMessageDialog(null, "The new conductor extrusion file, " +
-    				"called\n" + newFilename + " has been created" );
-    		chooser.showOpenDialog(chooser); 
 
-            
+			//Close the input stream
+			bRead.close();
+
+			// Load updated file content into new file in same directory as 
+			// input file 
+			String inputFileName = inputFile.getCanonicalPath(); 
+			String newPathAndFileName = inputFileName.substring(0, 
+					inputFileName.length() - 6)+"_updated.gcode";
+			File outputFile = new File(newPathAndFileName);
+			FileWriter fWrite = new FileWriter(outputFile);
+			BufferedWriter bWrite = new BufferedWriter(fWrite);
+			bWrite.write(modifiedFile.toString());
+			bWrite.close();
+
+
+			// Notify the user that the task is done and open file
+			JOptionPane.showMessageDialog(null, "Click OK to open the new GCode" +
+					"\nfile in ReplicatorG", "Continue",
+					JOptionPane.DEFAULT_OPTION, null);
+			Desktop dt = Desktop.getDesktop();
+			dt.open(outputFile);
+
+
 		} catch (Exception e) {
-			System.out.println("Problem reading file.");
+			e.printStackTrace();
 		}
 	}
 }
+
