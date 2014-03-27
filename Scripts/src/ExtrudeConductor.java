@@ -44,15 +44,39 @@ public class ExtrudeConductor {
 		// declare variables to use in file parsing
 		boolean replaceMode = false; 
 		boolean subsequentMove = false; 
+		boolean inMWStartCode = true; 
 		String tempLine; 
 		String line; 
+		File startGCode = new File("/Users/joshuareback/Dropbox/Senior-Design/Scripts/src/startGCode.txt");
+		StringBuilder modifiedFile = new StringBuilder();
+		
 		try {
-			// Set up to read file and hold content of modified file
-			BufferedReader bRead = new BufferedReader(new FileReader(inputFile));
-			StringBuilder modifiedFile = new StringBuilder();
+			// Append repG start GCode in output file
+			BufferedReader startCode = new BufferedReader(
+					new FileReader(startGCode));
+			while ((line = startCode.readLine()) != null) {
+				modifiedFile.append(line + "\n");
+			}
+			
+			// Read in input file
+			BufferedReader bRead = new BufferedReader(
+					new FileReader(inputFile));
 
 			// read file into input
 			while ((line = bRead.readLine()) != null) {
+				// Skip loop iteration if still in makerware start code
+				if (line.equals(";")) inMWStartCode = false; 
+				if (inMWStartCode) continue; 
+				
+				// remove lines which move extruders too close to the edge of
+				// the workspace
+				/**
+				 * TODO: Are these exact codes in every print?
+				 * TODO: Add some validation to ensure input gcode never
+				 * attempts to print outside the boundaries
+				 */
+				if (line.contains("X105") || line.contains("X-112")) continue;
+				
 				// Determine whether following lines need to be replaced
 				if (line.contains("M135 T1")) { 
 					replaceMode = true; 
@@ -90,7 +114,7 @@ public class ExtrudeConductor {
 				}
 				modifiedFile.append(line); 
 			} 
-			//Close the input stream
+			// Close the input stream
 			// Load updated file content into new file in same directory as 
 			// input file 
 			String inputFileName = inputFile.getCanonicalPath(); 
