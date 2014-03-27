@@ -84,7 +84,7 @@ public class ExtrudeConductor {
 									"M126; (Turns on conductor extrusion)\n");
 				} else if (replaceMode && line.contains("B")) {
 					// turn off plastic extrusion during conductor extrusion
-					line = line.substring(0, line.indexOf("B"));
+					line = line.substring(0, line.indexOf("B")) + "\n";
 				} else { 
 					line += "\n"; 
 				}
