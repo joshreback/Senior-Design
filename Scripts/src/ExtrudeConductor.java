@@ -1,5 +1,6 @@
 import java.awt.Desktop;
 
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -11,7 +12,7 @@ import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
- * @author joshuareback
+ * @author Joshua Reback
  * 
  * This script automates the process of extruding conductive material by
  * parsing a .gcode file corresponding to a dual extrusion print. 
@@ -42,78 +43,108 @@ public class ExtrudeConductor {
 		}
 
 		// declare variables to use in file parsing
-		boolean replaceMode = false; 
-		boolean subsequentMove = false; 
+		boolean pumpActive = false; 
+		boolean subsequentTravelMove = false; 
 		boolean inMWStartCode = true; 
+		double xOffset = 19.05;
+		double yOffset = 14.73; 
 		String tempLine; 
 		String line; 
 		File startGCode = new File("/Users/joshuareback/Dropbox/Senior-Design/Scripts/src/startGCode.txt");
 		StringBuilder modifiedFile = new StringBuilder();
-		
+
 		try {
-			// Append repG start GCode in output file
+			//Append repG start GCode in output file
 			BufferedReader startCode = new BufferedReader(
 					new FileReader(startGCode));
 			while ((line = startCode.readLine()) != null) {
 				modifiedFile.append(line + "\n");
 			}
-			
+
 			// Read in input file
 			BufferedReader bRead = new BufferedReader(
 					new FileReader(inputFile));
 
 			// read file into input
 			while ((line = bRead.readLine()) != null) {
-				// Skip loop iteration if still in makerware start code
-				if (line.equals(";")) inMWStartCode = false; 
+				// Skip loop iteration if in MakerWare start code or extruder
+				// carriage is too close to edge of workspace
+				if (line.equals(";")) inMWStartCode = false;  // never reset
 				if (inMWStartCode) continue; 
-				
-				// remove lines which move extruders too close to the edge of
-				// the workspace
-				/**
-				 * TODO: Are these exact codes in every print?
-				 * TODO: Add some validation to ensure input gcode never
-				 * attempts to print outside the boundaries
-				 */
 				if (line.contains("X105") || line.contains("X-112")) continue;
 				
+				///////////////////////////////////////////////////////////////
+
 				// Determine whether following lines need to be replaced
 				if (line.contains("M135 T1")) { 
-					replaceMode = true; 
-					subsequentMove = false; 
-				}
-				if (line.contains("M135 T0")) { 
+					pumpActive = true; 
+					subsequentTravelMove = false;
+				} else if (line.contains("M135 T0")) { 
 					// Turn off conductor extrusion when switching to other tool
 					tempLine = line; 
-					line = "M127; (Turns off conductor extrusion)\n" + line + "\n";
-					replaceMode = false;
-				}
-				// Determine if you have detected the first travel move
-				if (line.contains("Travel move") && replaceMode && 
-						!subsequentMove) { 
-					subsequentMove = true; 
+					line = "M127; (Turns off conductor extrusion)\n" + tempLine;
+					pumpActive = false;
+				} else if (pumpActive && line.contains("Travel move") && 
+						!subsequentTravelMove) { 
 					// append first travel move with gcode for control signal 
 					// to extrude conductor and turn motor on 
 					line += ("\nM126;\nG4 P80;\nM127; (control signal to extrude " +
 							"conductor)\nG4 P500;\nM126; (Turn on conductor " +
-							"extrusion)\n");
-				} else if (line.contains("Travel move") && replaceMode && 
-						subsequentMove) {
+							"extrusion)");
+					subsequentTravelMove = true; 
+				} else if (pumpActive && line.contains("Travel move") && 
+						subsequentTravelMove) {
 					// turn off conductor extrusion, make travel move, then
 					// turn conductor extrusion back on 
 					tempLine = line; 
 					line = ("M127; (turns off conductor extrusion)\n") + 
 							tempLine + ("\nM126;\nG4 P80;\nM127;(control signal" +
 									" to extrude conductor)\nG4 P500;\n" +
-									"M126; (Turns on conductor extrusion)\n");
-				} else if (replaceMode && line.contains("B")) {
-					// turn off plastic extrusion during conductor extrusion
-					line = line.substring(0, line.indexOf("B")) + "\n";
-				} else { 
-					line += "\n"; 
+									"M126; (Turns on conductor extrusion)");
+				} else if (pumpActive && line.contains("G1")) {
+					// for moves to extrude the conductor: first apply xOffset
+					// and yOffset, change feedrate, and don't extrude plastic
+					tempLine = ""; 
+					try {
+						String[] parts = line.split(" ");
+						for (String part:parts) { 
+							if (part.charAt(0) == 'X') { 
+								double xPos = Double.parseDouble(part.substring(1, 
+										part.length())); 
+								xPos += xOffset; 
+								part = "X" + xPos; 
+							}
+							if (part.charAt(0) == 'Y') { 
+								double yPos = Double.parseDouble(part.substring(1, 
+										part.length())); 
+								yPos += yOffset; 
+								part = "Y" + yPos; 
+							}
+							if (part.charAt(0) == 'F') { 
+								double feedrate = Double.parseDouble(part.substring(1, 
+										part.length())); 
+								feedrate = 100; 
+								part = "F" + feedrate; 
+							}
+							tempLine += part + " "; 
+						}
+						// do not extrude any plastic
+						if (tempLine.contains("B")) { 
+							tempLine = tempLine.substring(0, tempLine.indexOf("B"));
+						}
+						// append comment to verify offset 
+						tempLine += " (old line: " + line + ")";
+						line = tempLine; 
+					} catch (Exception e) {
+						// do nothing 
+					}
 				}
+				// no matter what, append a newline character to each gcode line
+				line += "\n"; 
 				modifiedFile.append(line); 
 			} 
+			
+			
 			// Close the input stream
 			// Load updated file content into new file in same directory as 
 			// input file 
@@ -133,8 +164,6 @@ public class ExtrudeConductor {
 					JOptionPane.DEFAULT_OPTION, null);
 			Desktop dt = Desktop.getDesktop();
 			dt.open(outputFile);
-
-
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
