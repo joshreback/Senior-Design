@@ -12,6 +12,7 @@ import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
+ * ./gpx -g -m r2x ../Prints/GCode/testTrace.gcode ../Prints/GCode/testTrace.x3g
  * @author Joshua Reback
  * 
  * This script automates the process of extruding conductive material by
