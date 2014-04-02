@@ -46,32 +46,20 @@ public class ExtrudeConductor {
 		// declare variables to use in file parsing
 		boolean pumpActive = false; 
 		boolean subsequentTravelMove = false; 
-		boolean inMWStartCode = true; 
 		double xOffset = 19.05;
 		double yOffset = 14.73; 
 		String tempLine; 
 		String line; 
-		File startGCode = new File("/Users/joshuareback/Dropbox/Senior-Design/Scripts/src/startGCode.txt");
 		StringBuilder modifiedFile = new StringBuilder();
 
 		try {
-			//Append repG start GCode in output file
-			BufferedReader startCode = new BufferedReader(
-					new FileReader(startGCode));
-			while ((line = startCode.readLine()) != null) {
-				modifiedFile.append(line + "\n");
-			}
-
 			// Read in input file
 			BufferedReader bRead = new BufferedReader(
 					new FileReader(inputFile));
 
 			// read file into input
 			while ((line = bRead.readLine()) != null) {
-				// Skip loop iteration if in MakerWare start code or extruder
-				// carriage is too close to edge of workspace
-				if (line.equals(";")) inMWStartCode = false;  // never reset
-				if (inMWStartCode) continue; 
+				// Skip loop iteration if carriage is too close to edge of workspace
 				if (line.contains("X105") || line.contains("X-112")) continue;
 				
 				///////////////////////////////////////////////////////////////
