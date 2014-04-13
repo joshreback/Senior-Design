@@ -46,8 +46,9 @@ public class ExtrudeConductor {
 		// declare variables to use in file parsing
 		boolean pumpActive = false; 
 		boolean subsequentTravelMove = false; 
-		double xOffset = 19.05;
-		double yOffset = 14.73; 
+		double xOffset = 18.8722;
+		double yOffset = 16.648;
+		double feedrate = 300; 
 		String tempLine; 
 		String line; 
 		StringBuilder modifiedFile = new StringBuilder();
@@ -64,32 +65,37 @@ public class ExtrudeConductor {
 				
 				///////////////////////////////////////////////////////////////
 
+				// remove long retract lines 
+				if (line.contains("Long Retract Extruder: A")) continue; 
 				// Determine whether following lines need to be replaced
 				if (line.contains("M135 T1")) { 
+					// overwrite line not include toolchange in modified file
+					line = "(Used to be a toolchange here)\n";
 					pumpActive = true; 
 					subsequentTravelMove = false;
 				} else if (line.contains("M135 T0")) { 
 					// Turn off conductor extrusion when switching to other tool
-					tempLine = line; 
-					line = "M127; (Turns off conductor extrusion)\n" + tempLine;
+					line = "M127; (Turns off conductor extrusion)";
 					pumpActive = false;
 				} else if (pumpActive && line.contains("Travel move") && 
 						!subsequentTravelMove) { 
 					// append first travel move with gcode for control signal 
 					// to extrude conductor and turn motor on 
-					line += ("\nM126;\nG4 P80;\nM127; (control signal to extrude " +
-							"conductor)\nG4 P500;\nM126; (Turn on conductor " +
-							"extrusion)");
+					line += "\nG4 P500;\nM126;\nG4 P2000;\nM127; (junk signal)" +
+							"\nG4 P500;\nM126;\nG4 P720;\nM127;" +
+							" (control signal to extrude conductor)\nG4 P500;\n" +
+							"M126; (Turn on conductor extrusion)";
 					subsequentTravelMove = true; 
 				} else if (pumpActive && line.contains("Travel move") && 
 						subsequentTravelMove) {
 					// turn off conductor extrusion, make travel move, then
 					// turn conductor extrusion back on 
 					tempLine = line; 
-					line = ("M127; (turns off conductor extrusion)\n") + 
-							tempLine + ("\nM126;\nG4 P80;\nM127;(control signal" +
-									" to extrude conductor)\nG4 P500;\n" +
-									"M126; (Turns on conductor extrusion)");
+					line = "M127; (turns off conductor extrusion)\n" + 
+							tempLine + "\nG4 P500;\nM126;\nG4 P2000;\nM127;" +
+							" (junk signal)\nG4 P500;\nM126;\nG4 P720;\n" +
+							"M127; (control signal to extrude conductor)\nG4" +
+							" P500;\n M126; (Turn on conductor extrusion)";
 				} else if (pumpActive && line.contains("G1")) {
 					// for moves to extrude the conductor: first apply xOffset
 					// and yOffset, change feedrate, and don't extrude plastic
@@ -109,11 +115,9 @@ public class ExtrudeConductor {
 								yPos += yOffset; 
 								part = "Y" + yPos; 
 							}
+							
 							if (part.charAt(0) == 'F') { 
-								double feedrate = Double.parseDouble(part.substring(1, 
-										part.length())); 
-								feedrate = 100; 
-								part = "F" + feedrate; 
+								part = "F" + feedrate + ";"; 
 							}
 							tempLine += part + " "; 
 						}
