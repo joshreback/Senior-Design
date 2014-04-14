@@ -1,18 +1,25 @@
 import java.awt.Desktop;
 
 
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.Arrays;
 
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JFileChooser;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
- * ./gpx -g -m r2x ../Prints/GCode/testTrace.gcode ../Prints/GCode/testTrace.x3g
  * @author Joshua Reback
  * 
  * This script automates the process of extruding conductive material by
@@ -23,7 +30,12 @@ import javax.swing.filechooser.FileNameExtensionFilter;
  * This script parses the gcode to replace toolchanges with the .gcode 
  * commands extrude conductive material. 
  * 
- * TODO Calculate offset from left/right extruder immediately after toolchange
+ * TODO: -Organize control signals: extrude conductor, burn signal, open/close 
+ *       clamp and raise/lower arm
+ *       -Mount clamp and arm higher so that you don't need to ever lower the buildplate 
+ *       -Calculate x & y location of the bins 
+ *       -Calculate x, y, z offsets for the clamp and arm 
+ *       -Determine times to pause to actuate open/close clamp and raise/lower arm     
  */
 
 public class ExtrudeConductor {
@@ -43,11 +55,58 @@ public class ExtrudeConductor {
 			inputFile = chooser.getSelectedFile(); 
 		}
 
-		// declare variables to use in file parsing
+		// Get pick and place inputs: number of objects and x, y, z locations
+		// of each one 
+		int numParts = Integer.parseInt(JOptionPane.showInputDialog(
+				"How many parts will be placed?"));
+		PickAndPlaceObj[] partsToPlace = new PickAndPlaceObj[numParts];
+		JTextField xField = new JTextField();
+		JTextField yField = new JTextField();
+		JTextField zField = new JTextField();
+		JPanel myPanel = new JPanel();
+		myPanel.setLayout(new BoxLayout(myPanel, BoxLayout.Y_AXIS));
+		myPanel.add(new JLabel("x (mm):"));
+		myPanel.add(xField);
+		myPanel.add(new JLabel("y (mm):"));
+		myPanel.add(yField);
+		myPanel.add(new JLabel("z (mm):"));
+		myPanel.add(zField);
+		JLabel msg = new JLabel("Enter the x, y, and z positions for" +
+				" part 1");
+		myPanel.add(msg, 0);
+		for (int i = 0; i < numParts; i++) { 
+			xField.setText("");
+			yField.setText("");
+			zField.setText("");
+			myPanel.add(msg, 0);
+			JOptionPane.showConfirmDialog(null, myPanel, null, 
+					JOptionPane.OK_CANCEL_OPTION);
+			double xPos = Double.parseDouble(xField.getText());
+			double yPos = Double.parseDouble(yField.getText());
+			double zPos = Double.parseDouble(zField.getText());
+			partsToPlace[i] = new PickAndPlaceObj(xPos, yPos, zPos);
+			myPanel.remove(0);
+			msg.setText("Enter the x, y, and z positions for" +
+					" part " + (i+2));
+			myPanel.add(msg, 0);
+		}
+
+		// sort array so that the part that is to be placed closest to the
+		// build platform (smallest z) is at the front of the array 
+		Arrays.sort(partsToPlace); 
+
+		// declare variables to use for automating pick and place
+		double binX = 1.0; 
+		double binY[] = new double[numParts];
+		double binZ = 1.0; 
+		boolean placedPart[] = new boolean[numParts];
+		int partsPlaced = 0;  
+
+		// declare variables to use for automating conductor extrusion
 		boolean pumpActive = false; 
 		boolean subsequentTravelMove = false; 
-		double xOffset = 18.8722;
-		double yOffset = 16.648;
+		double xOffsetFromSyringe = 18.8722;
+		double yOffsetFromSyringe = 16.648;
 		double feedrate = 300; 
 		String tempLine; 
 		String line; 
@@ -60,9 +119,13 @@ public class ExtrudeConductor {
 
 			// read file into input
 			while ((line = bRead.readLine()) != null) {
+				// MakerBot extrudes 0.2 mm layers; layer right above z-level 
+				// at which to place is 0.2 higher 
+				double zLevel = partsToPlace[partsPlaced].z + 0.2;
+
 				// Skip loop iteration if carriage is too close to edge of workspace
 				if (line.contains("X105") || line.contains("X-112")) continue;
-				
+
 				///////////////////////////////////////////////////////////////
 
 				// remove long retract lines 
@@ -106,16 +169,16 @@ public class ExtrudeConductor {
 							if (part.charAt(0) == 'X') { 
 								double xPos = Double.parseDouble(part.substring(1, 
 										part.length())); 
-								xPos += xOffset; 
+								xPos += xOffsetFromSyringe; 
 								part = "X" + xPos; 
 							}
 							if (part.charAt(0) == 'Y') { 
 								double yPos = Double.parseDouble(part.substring(1, 
 										part.length())); 
-								yPos += yOffset; 
+								yPos += yOffsetFromSyringe; 
 								part = "Y" + yPos; 
 							}
-							
+
 							if (part.charAt(0) == 'F') { 
 								part = "F" + feedrate + ";"; 
 							}
@@ -132,12 +195,52 @@ public class ExtrudeConductor {
 						// do nothing 
 					}
 				}
+
+				// conditions to pick & place next part:
+				// 1. pump is not active (we should have already extruded conductor)
+				// 2. line immediately follows extrusion of z-layer at which to
+				//    place object
+				// 3. Haven't already placed object 
+				if (!pumpActive && line.contains("z" + zLevel) && 
+						!placedPart[partsPlaced]) { 
+					// add in movements & control signals to place part
+					line += ("(START OF PICK AND PLACE CODE)\n" + 
+							"G1 X"+ binX + " Y" + binY[partsPlaced] + " Z" + 
+							binZ + "F300"                            // move to bin
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // lower arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 720;\nM127;"    // control signal to close clamp
+							+ "\nG4 P500;\nM126;\nG4 720;\nM127;"    // close clamp
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // raise arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // lower build plate***
+							+ "\nG1 X" + partsToPlace[partsPlaced].x + 
+							" Y" + partsToPlace[partsPlaced].y + 
+							" Z" + zLevel + " F300"                  // Move carriage to designated x,y coordinate
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm  
+							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // lower arm  
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU 
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // control signal to open clamp 
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // open clamp 
+							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"   // reset MCU 
+							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm 
+							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // raise arm 
+							+ "(\nEND OF PICK AND PLACE CODE)"); 
+					
+					// indicate that you have already placed the part 
+					placedPart[partsPlaced] = true;
+					partsPlaced++; 
+				}
 				// no matter what, append a newline character to each gcode line
 				line += "\n"; 
 				modifiedFile.append(line); 
 			} 
-			
-			
+
+
 			// Close the input stream
 			// Load updated file content into new file in same directory as 
 			// input file 
@@ -159,6 +262,36 @@ public class ExtrudeConductor {
 			dt.open(outputFile);
 		} catch (Exception e) {
 			e.printStackTrace();
+		}
+	}
+
+	private static class PickAndPlaceObj implements Comparable<PickAndPlaceObj> { 
+		public double x; 
+		public double y; 
+		public double z; 
+
+		public PickAndPlaceObj(double xPos, double yPos, double zPos) { 
+			this.x = xPos; 
+			this.y = yPos; 
+			this.z = zPos; 
+		}
+
+		public int compareTo(PickAndPlaceObj other) { 
+			if (this.z > other.z) { 
+				return 1; 
+			} else if (this.z < other.z) { 
+				return -1; 
+			} else { 
+				if (this.x > other.x) { 
+					return 1; 
+				} else if (other.x > this.x)  {
+					return -1;
+				} else if (this.y > other.y) { 
+					return 1; 
+				} else { 
+					return -1; 
+				}
+			}
 		}
 	}
 }
