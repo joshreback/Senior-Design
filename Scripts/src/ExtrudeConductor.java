@@ -92,7 +92,8 @@ public class ExtrudeConductor {
 		}
 
 		// sort array so that the part that is to be placed closest to the
-		// build platform (smallest z) is at the front of the array 
+		// build platform (smallest z) is at the front of the array
+		// (partsToPlace < 5)
 		Arrays.sort(partsToPlace); 
 
 		// declare variables to use for automating pick and place
@@ -101,6 +102,8 @@ public class ExtrudeConductor {
 		double binZ = 1.0; 
 		boolean placedPart[] = new boolean[numParts];
 		int partsPlaced = 0;  
+		double xOffsetFromClaw = 60.325;
+		double yOffsetFromClaw = 53.975;
 
 		// declare variables to use for automating conductor extrusion
 		boolean pumpActive = false; 
@@ -145,9 +148,9 @@ public class ExtrudeConductor {
 					// append first travel move with gcode for control signal 
 					// to extrude conductor and turn motor on 
 					line += "\nG4 P500;\nM126;\nG4 P2000;\nM127; (junk signal)" +
-							"\nG4 P500;\nM126;\nG4 P720;\nM127;" +
-							" (control signal to extrude conductor)\nG4 P500;\n" +
-							"M126; (Turn on conductor extrusion)";
+							"\nG4 P500;\nM126;\nG4 P160;\nM127;" +
+							" (control signal to extrude conductor)" +
+							"\nG4 P500;\n M126; (Turn on conductor extrusion)";
 					subsequentTravelMove = true; 
 				} else if (pumpActive && line.contains("Travel move") && 
 						subsequentTravelMove) {
@@ -155,10 +158,10 @@ public class ExtrudeConductor {
 					// turn conductor extrusion back on 
 					tempLine = line; 
 					line = "M127; (turns off conductor extrusion)\n" + 
-							tempLine + "\nG4 P500;\nM126;\nG4 P2000;\nM127;" +
-							" (junk signal)\nG4 P500;\nM126;\nG4 P720;\n" +
-							"M127; (control signal to extrude conductor)\nG4" +
-							" P500;\n M126; (Turn on conductor extrusion)";
+							tempLine + 
+							"\nG4 P500;\nM126;\nG4 P2000;\nM127; (junk signal)" +
+							"\nG4 P500;\nM126;\nG4 P160;\n M127; (control signal to extrude conductor)" +
+							"\nG4 P500;\n M126; (Turn on conductor extrusion)";
 				} else if (pumpActive && line.contains("G1")) {
 					// for moves to extrude the conductor: first apply xOffset
 					// and yOffset, change feedrate, and don't extrude plastic
@@ -204,31 +207,31 @@ public class ExtrudeConductor {
 				if (!pumpActive && line.contains("z" + zLevel) && 
 						!placedPart[partsPlaced]) { 
 					// add in movements & control signals to place part
+					double pumpX = xOffsetFromClaw + partsToPlace[partsPlaced].x;
+					double pumpY = xOffsetFromClaw + partsToPlace[partsPlaced].y;
 					line += ("(START OF PICK AND PLACE CODE)\n" + 
 							"G1 X"+ binX + " Y" + binY[partsPlaced] + " Z" + 
-							binZ + "F300"                            // move to bin
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
-							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // lower arm
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
-							+ "\nG4 P500;\nM126;\nG4 720;\nM127;"    // control signal to close clamp
-							+ "\nG4 P500;\nM126;\nG4 720;\nM127;"    // close clamp
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
-							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // raise arm
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // lower build plate***
-							+ "\nG1 X" + partsToPlace[partsPlaced].x + 
-							" Y" + partsToPlace[partsPlaced].y + 
-							" Z" + zLevel + " F300"                  // Move carriage to designated x,y coordinate
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
-							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm  
-							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // lower arm  
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU 
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // control signal to open clamp 
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // open clamp 
-							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"   // reset MCU 
-							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm 
-							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // raise arm 
+							binZ + "F300"                            	 // move to bin
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  	 // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   	 // control signal to lower arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  	 // lower arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  	 // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P720;\nM127;"   	 // control signal to close clamp
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // close clamp
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"       // control signal to raise arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // raise arm
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // lower build plate***
+							+ "\nG1 X" + pumpX + " Y" + pumpY + " F300"  // Move carriage to designated x,y coordinate
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"       // control signal to lower arm  
+							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"       // lower arm  
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // reset MCU 
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // control signal to open clamp 
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"      // open clamp 
+							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"       // reset MCU 
+							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"       // control signal to raise arm 
+							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"       // raise arm 
 							+ "(\nEND OF PICK AND PLACE CODE)"); 
 					
 					// indicate that you have already placed the part 
@@ -276,21 +279,20 @@ public class ExtrudeConductor {
 			this.z = zPos; 
 		}
 
+		@Override
 		public int compareTo(PickAndPlaceObj other) { 
 			if (this.z > other.z) { 
 				return 1; 
 			} else if (this.z < other.z) { 
 				return -1; 
-			} else { 
-				if (this.x > other.x) { 
+			} else if (this.x > other.x) { 
 					return 1; 
-				} else if (other.x > this.x)  {
+			} else if (other.x > this.x)  {
 					return -1;
-				} else if (this.y > other.y) { 
+			} else if (this.y > other.y) { 
 					return 1; 
-				} else { 
+			} else { 
 					return -1; 
-				}
 			}
 		}
 	}
