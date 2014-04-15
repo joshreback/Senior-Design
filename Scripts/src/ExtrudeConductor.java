@@ -210,8 +210,10 @@ public class ExtrudeConductor {
 					double pumpX = xOffsetFromClaw + partsToPlace[partsPlaced].x;
 					double pumpY = xOffsetFromClaw + partsToPlace[partsPlaced].y;
 					line += ("(START OF PICK AND PLACE CODE)\n" + 
-							"G1 X"+ binX + " Y" + binY[partsPlaced] + " Z" + 
-							binZ + "F300"                            	 // move to bin
+							"G1 X"+ binX + " Y" + binY[partsPlaced] + "F300"  // move to bin
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  	 // reset MCU
+							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"   	 // control signal to open clamp
+							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"  	 // open clamp
 							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  	 // reset MCU
 							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   	 // control signal to lower arm
 							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  	 // lower arm
