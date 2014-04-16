@@ -96,14 +96,17 @@ public class ExtrudeConductor {
 		Arrays.sort(partsToPlace); 
 
 		// declare variables to use for automating pick and place
-		double binX = 1.0; 
-		double binY[] = new double[numParts];
-		double binZ = 1.0; 
+		double binX = -63; 
+		double binY[] = {-10, 17.6, 44, 66};
 		boolean placedPart[] = new boolean[numParts];
 		int partsPlaced = 0;  
 		String[] components; 
 		double zLevel = 0.0; 
 		double wellHeight = 5.0; 
+		double xOffsetFromPump = 93.325; 
+		double yOffsetFromPump = 53.975;
+		double xPickPlace = 0; 
+		double yPickPlace = 0; 
 
 		// declare variables to use for automating conductor extrusion
 		boolean pumpActive = false; 
@@ -207,32 +210,35 @@ public class ExtrudeConductor {
 							&& components[3].charAt(0) == 'Z' 
 							&& components[3].length() > 1) { 
 						zLevel = Double.parseDouble(components[3].substring(1));
+						
 					}
 				} catch (Exception e) { 
 					System.out.println("error line: " + line);
 				}
-				if (!pumpActive && !placedPart[partsPlaced] 
-						&& partsPlaced < numParts
+				if (!pumpActive && partsPlaced < numParts 
+						&& !placedPart[partsPlaced] 
 						&& zLevel > (partsToPlace[partsPlaced].z + wellHeight)) { 
 					// add in movements & control signals to place part
-					line += ("(START OF PICK AND PLACE CODE)\n" + 
-							"G1 Z10 F300" 				 			 // move build plate to "pick level" 
-							 + "G1 X"+ binX + " Y" + binY[partsPlaced] 
-									 + " Z" + binZ + "F300"          // move to bin
+					xPickPlace = partsToPlace[partsPlaced].x + xOffsetFromPump;
+					yPickPlace = partsToPlace[partsPlaced].y + yOffsetFromPump;
+					line += ("\n(START OF PICK AND PLACE CODE)\n" + 
+							"G1 Z20 F300" 				 			 // move build plate to "pick level" 
+							 + "\nG1 X"+ binX + " Y" + binY[partsPlaced] 
+									 + " F300"          			 // move to bin
 							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
 							+ "\nG4 P500;\nM126;\nG4 P720;\nM127;"   // control signal to open clamp 
 							+ "\nG4 P500;\nM126;\nG4 P1000;\nM127;"  // open clamp
 							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm
-							+ "\nG4 P500;\nM126;\nG4 P18000;\nM127;" // lower arm
+							+ "\nG4 P500;\nM126;\nG4 P28000;\nM127;" // lower arm
 							+ "\nG4 P500;\nM126;\nG4 720;\nM127;"    // control signal to close clamp
 							+ "\nG4 P500;\nM126;\nG4 2000;\nM127;"   // close clamp
 							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
 							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // raise arm
-							+ "\nG1 X" + partsToPlace[partsPlaced].x + 
-							" Y" + partsToPlace[partsPlaced].y +  " F300"  // Move carriage to designated x,y coordinate
+							+ "\nG4 P500;\nM126;\nG4 P28000;\nM127;" // raise arm
+							+ "\nG1 X" + xPickPlace + " Y" + yPickPlace 
+								+  " F300"  						 // Move carriage to designated x,y coordinate
 							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm  
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"   // lower arm  
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // lower arm  
 							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"   // control signal to open clamp 
 							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // open clamp 
 							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm 
