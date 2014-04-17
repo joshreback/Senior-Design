@@ -141,7 +141,7 @@ public class ExtrudeConductor {
 					subsequentTravelMove = false;
 				} else if (line.contains("M135 T0")) { 
 					// Turn off conductor extrusion when switching to other tool
-					line = "M127; (Turns off conductor extrusion)";
+					line = "\nG4 P100\nM127; (Turns off conductor extrusion)";
 					pumpActive = false;
 				} else if (pumpActive && line.contains("Travel move") && 
 						!subsequentTravelMove) { 
@@ -217,7 +217,9 @@ public class ExtrudeConductor {
 				}
 				if (!pumpActive && partsPlaced < numParts 
 						&& !placedPart[partsPlaced] 
-						&& zLevel > (partsToPlace[partsPlaced].z + wellHeight)) { 
+						&& zLevel > (partsToPlace[partsPlaced].z)) { 
+					System.out.println("current level: " + zLevel);
+					System.out.println("place here: " + partsToPlace[partsPlaced].z);
 					// add in movements & control signals to place part
 					xPickPlace = partsToPlace[partsPlaced].x + xOffsetFromPump;
 					yPickPlace = partsToPlace[partsPlaced].y + yOffsetFromPump;
@@ -226,24 +228,25 @@ public class ExtrudeConductor {
 							 + "\nG1 X"+ binX + " Y" + binY[partsPlaced] 
 									 + " F300"          			 // move to bin
 							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
-							+ "\nG4 P500;\nM126;\nG4 P720;\nM127;"   // control signal to open clamp 
+							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"   // control signal to open clamp 
 							+ "\nG4 P500;\nM126;\nG4 P1000;\nM127;"  // open clamp
 							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm
 							+ "\nG4 P500;\nM126;\nG4 P28000;\nM127;" // lower arm
-							+ "\nG4 P500;\nM126;\nG4 720;\nM127;"    // control signal to close clamp
-							+ "\nG4 P500;\nM126;\nG4 2000;\nM127;"   // close clamp
+							+ "\nG4 P500;\nM126;\nG4 P720;\nM127;"    // control signal to close clamp
+							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"   // close clamp
 							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // reset MCU
 							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm
-							+ "\nG4 P500;\nM126;\nG4 P28000;\nM127;" // raise arm
+							+ "\nG4 P500;\nM126;\nG4 P31000;\nM127;" // raise arm
 							+ "\nG1 X" + xPickPlace + " Y" + yPickPlace 
 								+  " F300"  						 // Move carriage to designated x,y coordinate
+							+ "\nG1 Z" + zLevel + " F300" 			 // Move build plate to previous level 
 							+ "\nG4 P500;\nM126;\nG4 P400;\nM127;"   // control signal to lower arm  
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // lower arm  
+							+ "\nG4 P500;\nM126;\nG4 P4000;\nM127;"  // lower arm  
 							+ "\nG4 P500;\nM126;\nG4 P880;\nM127;"   // control signal to open clamp 
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // open clamp 
+							+ "\nG4 P500;\nM126;\nG4 P4000;\nM127;"  // open clamp 
 							+ "\nG4 P500;\nM126;\nG4 P560;\nM127;"   // control signal to raise arm 
-							+ "\nG4 P500;\nM126;\nG4 P2000;\nM127;"  // raise arm 
-							+ "(\nEND OF PICK AND PLACE CODE)"); 
+							+ "\nG4 P500;\nM126;\nG4 P4000;\nM127;"  // raise arm 
+							+ "\n(END OF PICK AND PLACE CODE)"); 
 
 					// indicate that you have already placed the part 
 					placedPart[partsPlaced] = true;
