@@ -157,11 +157,11 @@ public class ExtrudeConductor {
 					// turn off conductor extrusion, make travel move, then
 					// turn conductor extrusion back on 
 					tempLine = line; 
-					line = "M127; (turns off conductor extrusion)\n" + 
+					line = "\nG4 P100\nM127; (turns off conductor extrusion)\n" + 
 							tempLine + "\nG4 P500;\nM126;\nG4 P2000;\nM127;" +
 							" (junk signal)\nG4 P500;\nM126;\nG4 P720;\n" +
 							"M127; (control signal to extrude conductor)\nG4" +
-							" P500;\n M126; (Turn on conductor extrusion)";
+							" P500;\nM126; (Turn on conductor extrusion)";
 				} else if (pumpActive && line.contains("G1")) {
 					// for moves to extrude the conductor: first apply xOffset
 					// and yOffset, change feedrate, and don't extrude plastic
