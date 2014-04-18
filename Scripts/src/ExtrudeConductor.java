@@ -97,14 +97,13 @@ public class ExtrudeConductor {
 
 		// declare variables to use for automating pick and place
 		double binX = -63; 
-		double binY[] = {-10, 17.6, 44, 66};
+		double binY[] = {-7, 17.6, 44, 66};
 		boolean placedPart[] = new boolean[numParts];
 		int partsPlaced = 0;  
 		String[] components; 
 		double zLevel = 0.0; 
-		double wellHeight = 5.0; 
-		double xOffsetFromPump = 93.325; 
-		double yOffsetFromPump = 53.975;
+		double xOffsetFromPump = 95; 
+		double yOffsetFromPump = 53;
 		double xPickPlace = 0; 
 		double yPickPlace = 0; 
 
@@ -132,23 +131,26 @@ public class ExtrudeConductor {
 				///////////////////////////////////////////////////////////////
 
 				// remove long retract lines 
-				if (line.contains("Long Retract Extruder: A")) continue; 
+				if (line.contains("Long Retract Extruder: A") || line.contains("Support")
+						|| (line.contains("Retract") && pumpActive)) { 
+					continue; 
+				}
 				// Determine whether following lines need to be replaced
 				if (line.contains("M135 T1")) { 
 					// overwrite line not include toolchange in modified file
-					line = "(Used to be a toolchange here)\n";
+					line = "(Used to be a toolchange here)";
 					pumpActive = true; 
 					subsequentTravelMove = false;
 				} else if (line.contains("M135 T0")) { 
 					// Turn off conductor extrusion when switching to other tool
 					line = "\nG4 P100\nM127; (Turns off conductor extrusion)";
-					pumpActive = false;
+					pumpActive = false; 
 				} else if (pumpActive && line.contains("Travel move") && 
 						!subsequentTravelMove) { 
 					// append first travel move with gcode for control signal 
 					// to extrude conductor and turn motor on 
 					line += "\nG4 P500;\nM126;\nG4 P2000;\nM127; (junk signal)" +
-							"\nG4 P500;\nM126;\nG4 P720;\nM127;" +
+							"\nG4 P500;\nM126;\nG4 P160;\nM127;" +
 							" (control signal to extrude conductor)\nG4 P500;\n" +
 							"M126; (Turn on conductor extrusion)";
 					subsequentTravelMove = true; 
@@ -159,7 +161,7 @@ public class ExtrudeConductor {
 					tempLine = line; 
 					line = "\nG4 P100\nM127; (turns off conductor extrusion)\n" + 
 							tempLine + "\nG4 P500;\nM126;\nG4 P2000;\nM127;" +
-							" (junk signal)\nG4 P500;\nM126;\nG4 P720;\n" +
+							" (junk signal)\nG4 P500;\nM126;\nG4 P160;\n" +
 							"M127; (control signal to extrude conductor)\nG4" +
 							" P500;\nM126; (Turn on conductor extrusion)";
 				} else if (pumpActive && line.contains("G1")) {
@@ -199,11 +201,7 @@ public class ExtrudeConductor {
 					}
 				}
 
-				// conditions to pick & place next part:
-				// 1. pump is not active (we should have already extruded conductor)
-				// 2. line immediately follows extrusion of z-layer at which to
-				//    place object
-				// 3. Haven't already placed object 
+				
 				components = line.split(" ");
 				try { 
 					if (components.length > 4 
@@ -215,11 +213,17 @@ public class ExtrudeConductor {
 				} catch (Exception e) { 
 					System.out.println("error line: " + line);
 				}
+				
+				/* 
+				 * conditions to pick & place next part:
+				 * 1. pump is not active (we should have already extruded conductor)
+				 * 2. line immediately follows extrusion of z-layer at which to
+				 *    place object
+				 * 3. Haven't already placed object 
+				 */
 				if (!pumpActive && partsPlaced < numParts 
 						&& !placedPart[partsPlaced] 
 						&& zLevel > (partsToPlace[partsPlaced].z)) { 
-					System.out.println("current level: " + zLevel);
-					System.out.println("place here: " + partsToPlace[partsPlaced].z);
 					// add in movements & control signals to place part
 					xPickPlace = partsToPlace[partsPlaced].x + xOffsetFromPump;
 					yPickPlace = partsToPlace[partsPlaced].y + yOffsetFromPump;
